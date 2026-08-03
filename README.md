@@ -1,7 +1,11 @@
-# Throwable Weapons
-A remastered and refactored version of [PickleModifications Weapon Throwing Script](https://github.com/PickleModifications/pickle_weaponthrowing/).
+# Vehicle Enhancements
+A collection of enhancements for FiveM vehicles, ranging from cruise control to a parking system.
 
-### Demos
+### Features
+- The ability to shift vehicles gear (forward, neutral, reverse, park)
+- Adaptive cruise control
+- Brake light automation
+- Tire angle retention
 - TBD
 
 ### Dependencies
