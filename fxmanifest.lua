@@ -8,7 +8,7 @@ description "A FiveM script which provides various enhancements to vehicles"
 version "1.0.0"
 
 dependencies {
-	"ddj_lib", -- version >= 1.3.0
+	"ddj_lib", -- version >= 1.4.0
 }
 
 shared_scripts {

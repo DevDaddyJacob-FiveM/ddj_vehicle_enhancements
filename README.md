@@ -12,7 +12,7 @@ A collection of enhancements for FiveM vehicles, ranging from cruise control to 
 - [ddj_lib](https://github.com/DevDaddyJacob-FiveM/ddj_lib)
 
 ### Installation
-Installing the resource is simple, just download the latest version from the [releases](https://github.com/DevDaddyJacob-FiveM/ddj_throwable_weapons/releases/latest) tab, place the folder into your FiveM resources folder and then add `ensure ddj_throwable_weapons` to your server.cfg file.
+Installing the resource is simple, just download the latest version from the [releases](https://github.com/DevDaddyJacob-FiveM/ddj_vehicle_enhancements/releases/latest) tab, place the folder into your FiveM resources folder and then add `ensure ddj_vehicle_enhancements` to your server.cfg file.
 Remember to also download and install all of the dependencies!
 
 ### Configuration
