@@ -13,14 +13,20 @@ dependencies {
 
 shared_scripts {
 	"@ddj_lib/shared/logging.lua",
-	"@ddj_lib/imports/rpc.lua",
+	
 	"config.lua",
 	"shared/utils.lua",
+	"shared/state.lua",
 }
 
 client_scripts {
 	"@ddj_lib/client/input.lua",
+	"@ddj_lib/client/controls.lua",
+	"@ddj_lib/client/drawText2DThisFrame.lua",
+
 	"client/utils.lua",
+	"client/modules/brakeLights.lua",
+	"client/modules/gearShift.lua",
 	"client/main.lua",
 }
 
