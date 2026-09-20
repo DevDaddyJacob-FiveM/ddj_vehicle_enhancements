@@ -15,6 +15,11 @@ A collection of enhancements for FiveM vehicles, ranging from cruise control to 
 Installing the resource is simple, just download the latest version from the [releases](https://github.com/DevDaddyJacob-FiveM/ddj_vehicle_enhancements/releases/latest) tab, place the folder into your FiveM resources folder and then add `ensure ddj_vehicle_enhancements` to your server.cfg file.
 Remember to also download and install all of the dependencies!
 
+### Known Conflicts
+There is a known conflict with the script Luxart Vehicle Controller (LVC), specifically when using the `extra_integration` plugin's feature called `auto_brake_lights`.
+
+To resolve the conflict in the file `lvc > PLUGINS > extra_integration > SETTINGS.lua` set the value of `auto_brake_lights` to `false`
+
 ### Configuration
 All of the configuration and documentation for it can be found in the [config.lua](./config.lua) file.
 
