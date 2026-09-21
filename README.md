@@ -4,9 +4,11 @@ A collection of enhancements for FiveM vehicles, ranging from cruise control to 
 ### Features
 - The ability to shift vehicles gear (forward, neutral, reverse, park)
 - Brake light automation
-- [FUTURE PLANNED] Adaptive cruise control
-- [FUTURE PLANNED] Tire angle retention
 - [FUTURE PLANNED] Daytime Running Light (DRL) automation
+- [FUTURE PLANNED] Get into nearest door
+- [FUTURE PLANNED] Tire angle retention
+- [FUTURE PLANNED] Adaptive cruise control
+- [FUTURE PLANNED] Basic key system with integration capabilities
 
 ### Dependencies
 - [ddj_lib](https://github.com/DevDaddyJacob-FiveM/ddj_lib)
