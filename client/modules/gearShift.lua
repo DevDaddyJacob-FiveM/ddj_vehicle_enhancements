@@ -105,6 +105,14 @@ local function debugThread()
 
 
         drawText2DThisFrame({
+            text = GetVehicleCurrentGear(vehicleHandle),
+            x = 0.025,
+            y = 0.34,
+            alignment = 1
+        })
+
+
+        drawText2DThisFrame({
             text = GetEntitySpeedVector(vehicleHandle, true).y,
             x = 0.025,
             y = 0.37,
@@ -151,6 +159,9 @@ local function vehicleGearThread()
     local brakeFwd = false
     local brakeBwd = false
 
+    --[[
+        TODO: Incorporate this happening on vehicles even after you exit them.
+    ]]
     while true do
         local vehicleHandle = getCurrentVehHandle()
         local currentGear = getVehicleGearState(vehicleHandle)
@@ -258,6 +269,15 @@ local function vehicleGearThread()
                 -- Auto roll if not on gas
                 if not Controls.isPressed(ControlInputs.INPUT_VEH_ACCELERATE) then
                     Controls.setNormal(ControlInputs.INPUT_VEH_ACCELERATE, 0.3)
+                    
+                    --[[
+                        BUG: This was meant to fix the bug where when your in drive without gas
+                        pressed you would just start climbing through the gears, however 2 things
+                        occured, 1) the vehicle will not leave first but also will hit the top of
+                        first, which is too fast for this kind of rolling without gas. And 2) when 
+                        driving as soon as you let go of the gas it forces you into first gear.
+                    ]]
+                    SetVehicleCurrentGear(vehicleHandle, 1)
                 end
 
                 local speed = GetEntitySpeed(vehicleHandle)
@@ -317,6 +337,10 @@ local function vehicleGearThread()
             -- Auto roll if not on gas
             if not Controls.isPressed(ControlInputs.INPUT_VEH_BRAKE, true) then
                 Controls.setNormal(ControlInputs.INPUT_VEH_ACCELERATE, 0.3)
+            
+                --[[
+                    BUG: The same bugs as the drive auto roll exist here.
+                ]]
             end
 
             local speed = GetEntitySpeed(vehicleHandle)

@@ -29,7 +29,7 @@ Config = {
                 - Neutral (If Appliciable)
                 - Park
         ]]
-        EnableReverse = false,
+        EnableReverse = true,
 
         --[[
             Disables automatically entering reverse when holding the brake to stop.
