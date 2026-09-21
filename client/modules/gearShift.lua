@@ -66,52 +66,54 @@ end
 
 local function debugThread()
     while true do
-        local vehicleHandle = getCurrentVehHandle()
+        if isClientInVehicle() then
+            local vehicleHandle = getCurrentVehHandle()
 
-        drawText2DThisFrame({
-            text = GetVehicleCurrentGear(vehicleHandle),
-            x = 0.025,
-            y = 0.34,
-            alignment = 1
-        })
+            drawText2DThisFrame({
+                text = GetVehicleCurrentGear(vehicleHandle),
+                x = 0.025,
+                y = 0.34,
+                alignment = 1
+            })
 
 
-        drawText2DThisFrame({
-            text = GetEntitySpeedVector(vehicleHandle, true).y,
-            x = 0.025,
-            y = 0.37,
-            alignment = 1
-        })
+            drawText2DThisFrame({
+                text = GetEntitySpeedVector(vehicleHandle, true).y,
+                x = 0.025,
+                y = 0.37,
+                alignment = 1
+            })
 
-        drawText2DThisFrame({
-            text = "normal(INPUT_VEH_BRAKE): " .. tostring(Controls.getNormal(ControlInputs.INPUT_VEH_BRAKE, false)),
-            x = 0.025,
-            y = 0.4,
-            alignment = 1
-        })
-        
-        drawText2DThisFrame({
-            text = "disabledNormal(INPUT_VEH_BRAKE): " .. tostring(Controls.getDisabledNormal(ControlInputs.INPUT_VEH_BRAKE, false)),
-            x = 0.025,
-            y = 0.43,
-            alignment = 1
-        })
+            drawText2DThisFrame({
+                text = "normal(INPUT_VEH_BRAKE): " .. tostring(Controls.getNormal(ControlInputs.INPUT_VEH_BRAKE, false)),
+                x = 0.025,
+                y = 0.4,
+                alignment = 1
+            })
 
-        drawText2DThisFrame({
-            text = "normal(INPUT_VEH_ACCELERATE): " .. tostring(Controls.getNormal(ControlInputs.INPUT_VEH_ACCELERATE, false)),
-            x = 0.025,
-            y = 0.46,
-            alignment = 1
-        })
-        
-        drawText2DThisFrame({
-            text = "disabledNormal(INPUT_VEH_ACCELERATE): " .. tostring(Controls.getDisabledNormal(ControlInputs.INPUT_VEH_ACCELERATE, false)),
-            x = 0.025,
-            y = 0.49,
-            alignment = 1
-        })
-        
-    
+            drawText2DThisFrame({
+                text = "disabledNormal(INPUT_VEH_BRAKE): " .. tostring(Controls.getDisabledNormal(ControlInputs.INPUT_VEH_BRAKE, false)),
+                x = 0.025,
+                y = 0.43,
+                alignment = 1
+            })
+
+            drawText2DThisFrame({
+                text = "normal(INPUT_VEH_ACCELERATE): " .. tostring(Controls.getNormal(ControlInputs.INPUT_VEH_ACCELERATE, false)),
+                x = 0.025,
+                y = 0.46,
+                alignment = 1
+            })
+
+            drawText2DThisFrame({
+                text = "disabledNormal(INPUT_VEH_ACCELERATE): " .. tostring(Controls.getDisabledNormal(ControlInputs.INPUT_VEH_ACCELERATE, false)),
+                x = 0.025,
+                y = 0.49,
+                alignment = 1
+            })
+        end
+
+
         Citizen.Wait(0)
     end
 end
@@ -119,44 +121,46 @@ end
 
 local function integratedHUDThread()
     while Config["GearShift"]["UseIntegratedHUD"] do
-        local vehicleHandle = getCurrentVehHandle()
-        local currentGear = getVehicleGearState(vehicleHandle)
+        if isClientInVehicle() then
+            local vehicleHandle = getCurrentVehHandle()
+            local currentGear = getVehicleGearState(vehicleHandle)
 
-        local names = {}
-        for key, value in pairs(Gears) do
-            if  Gears.Invalid ~= value then
-                names[value] = key
+            local names = {}
+            for key, value in pairs(Gears) do
+                if  Gears.Invalid ~= value then
+                    names[value] = key
+                end
             end
+
+            local displayText = ""
+            for value, key in ipairs(names) do
+                if
+                    Gears.Invalid == value
+                    or (not Config["GearShift"]["EnableNeutral"] and Gears.Neutral == value)
+                    or (not Config["GearShift"]["EnableReverse"] and Gears.Reverse == value)
+                then
+                    goto continue
+                end
+
+                if currentGear == value then
+                    displayText = displayText .. "~w~"
+                else
+                    displayText = displayText .. "~c~"
+                end
+
+                displayText = displayText .. key .. "~s~~n~"
+
+                ::continue::
+            end
+
+            drawText2DThisFrame({
+                text = displayText,
+                x = 0.025,
+                y = 0.6
+            })
         end
 
-        local displayText = ""
-        for value, key in ipairs(names) do
-            if 
-                Gears.Invalid == value
-                or (not Config["GearShift"]["EnableNeutral"] and Gears.Neutral == value)
-                or (not Config["GearShift"]["EnableReverse"] and Gears.Reverse == value)
-            then
-                goto continue
-            end
 
-            if currentGear == value then
-                displayText = displayText .. "~w~"
-            else
-                displayText = displayText .. "~c~"
-            end
-
-            displayText = displayText .. key .. "~s~~n~"
-
-            ::continue::
-        end
-
-        drawText2DThisFrame({
-            text = displayText,
-            x = 0.025,
-            y = 0.6
-        })
-        
-    
         Citizen.Wait(0)
     end
 end
