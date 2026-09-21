@@ -162,157 +162,144 @@ local function integratedHUDThread()
 end
 
 
-local function vehicleGearThread()
-    local printedExit = nil
-    local lastGear = nil
-    local brakeFwd = false
-    local brakeBwd = false
+local vehicleGearStates = {}
 
-    --[[
-        TODO: Incorporate this happening on vehicles even after you exit them.
-    ]]
-    while true do
-        local vehicleHandle = getCurrentVehHandle()
-        local currentGear = getVehicleGearState(vehicleHandle)
+local function getVehicleGearThreadState(vehicleHandle)
+    local state = vehicleGearStates[vehicleHandle]
+    if nil == state then
+        state = {
+            lastGear = nil,
+            brakeFwd = false,
+            brakeBwd = false,
+        }
 
-        if nil == vehicleHandle or 0 == vehicleHandle then
-            if "nil_veh_handle" ~= printedExit then
-                logger:debug("vehicle handle is nil")
-                printedExit = "nil_veh_handle"
-            end
+        vehicleGearStates[vehicleHandle] = state
 
-            goto continue
-        end
+        logger:debug("took control of gear shift logic for vehicle [handle: %d]", vehicleHandle)
+    end
 
-        if not isClientInVehicle() then
-            if "not_in_car" ~= printedExit then
-                logger:debug("not in vehicle, skipping")
-                printedExit = "not_in_car"
-            end
-
-            goto continue
-        end
-
-        if not isClientInDriverSeat() then
-            if "not_driver" ~= printedExit then
-                logger:debug("not vehicle driver, skipping")
-                printedExit = "not_driver"
-            end
-
-            goto continue
-        end
-
-        printedExit = nil
+    return state
+end
 
 
-        -- Handle being in park
-        if Gears.Park == currentGear then
-            lastGear = Gears.Park
-            
-            SetVehicleControlsInverted(vehicleHandle, false)
+local function processVehicleGear(vehicleHandle, state, hasDriverInput)
+    local currentGear = getVehicleGearState(vehicleHandle)
 
-            SetVehicleControlsInverted(vehicleHandle, false)
-            
+
+    -- Handle being in park
+    if Gears.Park == currentGear then
+        state.lastGear = Gears.Park
+
+        SetVehicleControlsInverted(vehicleHandle, false)
+
+        if hasDriverInput then
             Controls.disableThisFrame(ControlInputs.INPUT_VEH_BRAKE)
+        end
 
-            SetVehicleHandbrake(vehicleHandle, true)
-            for i = 0, GetVehicleNumberOfWheels(vehicleHandle) - 1, 1 do
-                SetVehicleWheelBrakePressure(vehicleHandle, i, 1.0)
+        SetVehicleHandbrake(vehicleHandle, true)
+        for i = 0, GetVehicleNumberOfWheels(vehicleHandle) - 1, 1 do
+            SetVehicleWheelBrakePressure(vehicleHandle, i, 1.0)
+        end
+
+        if hasDriverInput and Controls.isPressed(ControlInputs.INPUT_VEH_BRAKE, true) then
+            setVehicleBrakeLightsState(vehicleHandle, true)
+        end
+
+    elseif Gears.Park == state.lastGear then
+        SetVehicleHandbrake(vehicleHandle, false)
+
+        state.lastGear = nil
+    end
+
+
+    -- Handle being in Drive
+    if Gears.Drive == currentGear then
+        state.lastGear = Gears.Drive
+
+        SetVehicleControlsInverted(vehicleHandle, false)
+
+        -- Disable auto reverse
+        if
+            hasDriverInput
+            and Config["GearShift"]["DisableAutoReverse"]
+            and not Config["GearShift"]["EnableReverse"]
+        then
+            local speedVec = GetEntitySpeedVector(vehicleHandle, true)
+            if 1.0 <= speedVec.y or -1.0 >= speedVec.y then
+                local brakeVal = Controls.getValue(ControlInputs.INPUT_VEH_BRAKE)
+                local accelVal = Controls.getValue(ControlInputs.INPUT_VEH_ACCELERATE)
+
+                state.brakeFwd = 127 < brakeVal and 1.0 <= speedVec.y
+                state.brakeBwd = 127 < accelVal and -1.0 >= speedVec.y
             end
 
-            if Controls.isPressed(ControlInputs.INPUT_VEH_BRAKE, true) then
+            local speed = GetEntitySpeed(vehicleHandle)
+            if 1.0 > speed and state.brakeFwd then
+                Controls.disableThisFrame(ControlInputs.INPUT_VEH_BRAKE)
+                SetVehicleForwardSpeed(speed * 0.95)
                 setVehicleBrakeLightsState(vehicleHandle, true)
-            end
-            
-        elseif Gears.Park == lastGear then
-            SetVehicleHandbrake(vehicleHandle, false)
 
-            lastGear = nil
+                if 0 == Controls.getDisabledNormal(ControlInputs.INPUT_VEH_BRAKE) then
+                    state.brakeFwd = false
+                end
+            end
+
+            if 1.0 > speed and state.brakeBwd then
+                Controls.disableThisFrame(ControlInputs.INPUT_VEH_ACCELERATE)
+                SetVehicleForwardSpeed(speed * 0.95)
+                setVehicleBrakeLightsState(vehicleHandle, true)
+
+                if 0 == Controls.getDisabledNormal(ControlInputs.INPUT_VEH_ACCELERATE) then
+                    state.brakeBwd = false
+                end
+            end
         end
 
 
-        -- Handle being in Drive
-        if Gears.Drive == currentGear then
-            lastGear = Gears.Drive
+        if Config["GearShift"]["EnableReverse"] then
+            -- Auto roll if not on gas
+            if not hasDriverInput or not Controls.isPressed(ControlInputs.INPUT_VEH_ACCELERATE) then
+                local rollSpeed = GetEntitySpeedVector(vehicleHandle, true).y
+                local rollTarget = Config["GearShift"]["AutoRoll"]["Speed"]
+                local rollStep = Config["GearShift"]["AutoRoll"]["RampStep"]
 
-            SetVehicleControlsInverted(vehicleHandle, false)
+                if rollTarget > rollSpeed then
+                    SetVehicleForwardSpeed(
+                        vehicleHandle,
+                        math.min(rollTarget, rollSpeed + rollStep)
+                    )
+                end
+            end
 
-            -- Disable auto reverse
+            local speed = GetEntitySpeed(vehicleHandle)
             if
-                Config["GearShift"]["DisableAutoReverse"]
-                and not Config["GearShift"]["EnableReverse"]
+                hasDriverInput
+                and GTA_1_MPH > speed
+                and Controls.isPressed(ControlInputs.INPUT_VEH_BRAKE, true)
             then
-                local speedVec = GetEntitySpeedVector(vehicleHandle, true)
-                if 1.0 <= speedVec.y or -1.0 >= speedVec.y then
-                    local brakeVal = Controls.getValue(ControlInputs.INPUT_VEH_BRAKE)
-                    local accelVal = Controls.getValue(ControlInputs.INPUT_VEH_ACCELERATE)
+                Controls.disableThisFrame(ControlInputs.INPUT_VEH_BRAKE)
+                Controls.setNormal(ControlInputs.INPUT_VEH_ACCELERATE, 0.8)
 
-                    brakeFwd = 127 < brakeVal and 1.0 <= speedVec.y
-                    brakeBwd = 127 < accelVal and -1.0 >= speedVec.y
-                end
-                
-                local speed = GetEntitySpeed(vehicleHandle)
-                if 1.0 > speed and brakeFwd then
-                    Controls.disableThisFrame(ControlInputs.INPUT_VEH_BRAKE)
-                    SetVehicleForwardSpeed(speed * 0.95)
-                    setVehicleBrakeLightsState(vehicleHandle, true)
-
-                    if 0 == Controls.getDisabledNormal(ControlInputs.INPUT_VEH_BRAKE) then
-                        brakeFwd = false
-                    end
-                end
-
-                if 1.0 > speed and brakeBwd then
-                    Controls.disableThisFrame(ControlInputs.INPUT_VEH_ACCELERATE)
-                    SetVehicleForwardSpeed(speed * 0.95)
-                    setVehicleBrakeLightsState(vehicleHandle, true)
-
-                    if 0 == Controls.getDisabledNormal(ControlInputs.INPUT_VEH_ACCELERATE) then
-                        brakeBwd = false
-                    end
-                end
+                SetVehicleCurrentRpm(vehicleHandle, 0.0)
+                SetVehicleBrake(vehicleHandle, true)
+                SetVehicleForwardSpeed(vehicleHandle, 0)
             end
-
-
-            if Config["GearShift"]["EnableReverse"] then
-                -- Auto roll if not on gas
-                if not Controls.isPressed(ControlInputs.INPUT_VEH_ACCELERATE) then
-                    local rollSpeed = GetEntitySpeedVector(vehicleHandle, true).y
-                    local rollTarget = Config["GearShift"]["AutoRoll"]["Speed"]
-                    local rollStep = Config["GearShift"]["AutoRoll"]["RampStep"]
-
-                    if rollTarget > rollSpeed then
-                        SetVehicleForwardSpeed(
-                            vehicleHandle,
-                            math.min(rollTarget, rollSpeed + rollStep)
-                        )
-                    end
-                end
-
-                local speed = GetEntitySpeed(vehicleHandle)
-                if GTA_1_MPH > speed and Controls.isPressed(ControlInputs.INPUT_VEH_BRAKE, true) then
-                    Controls.disableThisFrame(ControlInputs.INPUT_VEH_BRAKE)
-                    Controls.setNormal(ControlInputs.INPUT_VEH_ACCELERATE, 0.8)
-
-                    SetVehicleCurrentRpm(vehicleHandle, 0.0)
-                    SetVehicleBrake(vehicleHandle, true)
-                    SetVehicleForwardSpeed(vehicleHandle, 0)
-                end
-            end
-        elseif Gears.Drive == lastGear then
-            brakeFwd = false
-            brakeBwd = false
-
-            lastGear = nil
         end
+    elseif Gears.Drive == state.lastGear then
+        state.brakeFwd = false
+        state.brakeBwd = false
+
+        state.lastGear = nil
+    end
 
 
-        -- Handle being in neutral
-        if Gears.Neutral == currentGear then
-            lastGear = Gears.Neutral
+    -- Handle being in neutral
+    if Gears.Neutral == currentGear then
+        state.lastGear = Gears.Neutral
 
-            SetVehicleControlsInverted(vehicleHandle, false)
+        SetVehicleControlsInverted(vehicleHandle, false)
 
+        if hasDriverInput then
             Controls.disableThisFrame(ControlInputs.INPUT_VEH_ACCELERATE)
 
             local accelNormal = Controls.getDisabledNormal(ControlInputs.INPUT_VEH_ACCELERATE)
@@ -321,62 +308,91 @@ local function vehicleGearThread()
 
                 SetVehicleCurrentRpm(vehicleHandle, rpmNormal)
             end
-
-            local speed = GetEntitySpeed(vehicleHandle)
-            if GTA_1_MPH > speed and Controls.isPressed(ControlInputs.INPUT_VEH_BRAKE, true) then
-                Controls.disableThisFrame(ControlInputs.INPUT_VEH_BRAKE)
-
-                SetVehicleCurrentRpm(vehicleHandle, 0.0)
-                SetVehicleBrake(vehicleHandle, true)
-                SetVehicleForwardSpeed(vehicleHandle, 0)
-            end
-        elseif Gears.Neutral == lastGear then
-
-            lastGear = nil
         end
 
+        local speed = GetEntitySpeed(vehicleHandle)
+        if
+            hasDriverInput
+            and GTA_1_MPH > speed
+            and Controls.isPressed(ControlInputs.INPUT_VEH_BRAKE, true)
+        then
+            Controls.disableThisFrame(ControlInputs.INPUT_VEH_BRAKE)
 
-        -- Handle being in reverse
-        if Gears.Reverse == currentGear then
-            lastGear = Gears.Reverse
+            SetVehicleCurrentRpm(vehicleHandle, 0.0)
+            SetVehicleBrake(vehicleHandle, true)
+            SetVehicleForwardSpeed(vehicleHandle, 0)
+        end
+    elseif Gears.Neutral == state.lastGear then
 
-            SetVehicleControlsInverted(vehicleHandle, true)
+        state.lastGear = nil
+    end
 
 
-            -- Auto roll if not on gas
-            if not Controls.isPressed(ControlInputs.INPUT_VEH_BRAKE, true) then
-                local rollSpeed = GetEntitySpeedVector(vehicleHandle, true).y
-                local rollTarget = -1 * Config["GearShift"]["AutoRoll"]["Speed"]
-                local rollStep = Config["GearShift"]["AutoRoll"]["RampStep"]
+    -- Handle being in reverse
+    if Gears.Reverse == currentGear then
+        state.lastGear = Gears.Reverse
 
-                if rollTarget < rollSpeed then
-                    SetVehicleForwardSpeed(
-                        vehicleHandle,
-                        math.max(rollTarget, rollSpeed - rollStep)
-                    )
-                end
+        SetVehicleControlsInverted(vehicleHandle, true)
+
+
+        -- Auto roll if not on gas
+        if not hasDriverInput or not Controls.isPressed(ControlInputs.INPUT_VEH_BRAKE, true) then
+            local rollSpeed = GetEntitySpeedVector(vehicleHandle, true).y
+            local rollTarget = -1 * Config["GearShift"]["AutoRoll"]["Speed"]
+            local rollStep = Config["GearShift"]["AutoRoll"]["RampStep"]
+
+            if rollTarget < rollSpeed then
+                SetVehicleForwardSpeed(
+                    vehicleHandle,
+                    math.max(rollTarget, rollSpeed - rollStep)
+                )
             end
-
-            local speed = GetEntitySpeed(vehicleHandle)
-            if
-                GTA_1_MPH > speed
-                and Controls.isPressed(ControlInputs.INPUT_VEH_BRAKE, true)
-            then
-                Controls.setNormal(ControlInputs.INPUT_VEH_ACCELERATE, 0.8)
-
-                SetVehicleCurrentRpm(vehicleHandle, 0.0)
-                SetVehicleBrake(vehicleHandle, true)
-                SetVehicleForwardSpeed(vehicleHandle, 0)
-            end
-        elseif Gears.Reverse == lastGear then
-            SetVehicleControlsInverted(vehicleHandle, false)
-
-            lastGear = nil
         end
 
+        local speed = GetEntitySpeed(vehicleHandle)
+        if
+            hasDriverInput
+            and GTA_1_MPH > speed
+            and Controls.isPressed(ControlInputs.INPUT_VEH_BRAKE, true)
+        then
+            Controls.setNormal(ControlInputs.INPUT_VEH_ACCELERATE, 0.8)
 
-        
-        ::continue::
+            SetVehicleCurrentRpm(vehicleHandle, 0.0)
+            SetVehicleBrake(vehicleHandle, true)
+            SetVehicleForwardSpeed(vehicleHandle, 0)
+        end
+    elseif Gears.Reverse == state.lastGear then
+        SetVehicleControlsInverted(vehicleHandle, false)
+
+        state.lastGear = nil
+    end
+end
+
+
+local function vehicleGearThread()
+    while true do
+        local controlledVehicles = {}
+
+        for _, vehicleHandle in ipairs(GetGamePool("CVehicle")) do
+            if NetworkHasControlOfEntity(vehicleHandle) then
+                controlledVehicles[vehicleHandle] = true
+
+                local hasDriverInput =
+                    isClientInDriverSeat()
+                    and vehicleHandle == getCurrentVehHandle()
+
+                processVehicleGear(vehicleHandle, getVehicleGearThreadState(vehicleHandle), hasDriverInput)
+            end
+        end
+
+        for vehicleHandle in pairs(vehicleGearStates) do
+            if not controlledVehicles[vehicleHandle] then
+                vehicleGearStates[vehicleHandle] = nil
+
+                logger:debug("gave up control of gear shift logic for vehicle [handle: %d]", vehicleHandle)
+            end
+        end
+
         Citizen.Wait(0)
     end
 end

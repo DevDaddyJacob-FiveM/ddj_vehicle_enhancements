@@ -25,7 +25,7 @@ client_scripts {
 	"@ddj_lib/client/drawText2DThisFrame.lua",
 
 	"client/utils.lua",
-	"client/modules/brakeLights.lua",
+	"client/modules/engine.lua",
 	"client/modules/gearShift.lua",
 	"client/main.lua",
 }
