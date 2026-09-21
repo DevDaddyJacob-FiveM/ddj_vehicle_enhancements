@@ -67,42 +67,6 @@ end
 local function debugThread()
     while true do
         local vehicleHandle = getCurrentVehHandle()
-        local currentGear = getVehicleGearState(vehicleHandle)
-
-        local names = {}
-        for key, value in pairs(Gears) do
-            if  Gears.Invalid ~= value then
-                names[value] = key
-            end
-        end
-
-        local displayText = ""
-        for value, key in ipairs(names) do
-            if 
-                Gears.Invalid == value
-                or (not Config["GearShift"]["EnableNeutral"] and Gears.Neutral == value)
-                or (not Config["GearShift"]["EnableReverse"] and Gears.Reverse == value)
-            then
-                goto continue
-            end
-
-            if currentGear == value then
-                displayText = displayText .. "~w~"
-            else
-                displayText = displayText .. "~c~"
-            end
-
-            displayText = displayText .. key .. "~s~~n~"
-
-            ::continue::
-        end
-
-        drawText2DThisFrame({
-            text = displayText,
-            x = 0.025,
-            y = 0.6
-        })
-
 
         drawText2DThisFrame({
             text = GetVehicleCurrentGear(vehicleHandle),
@@ -145,6 +109,51 @@ local function debugThread()
             x = 0.025,
             y = 0.49,
             alignment = 1
+        })
+        
+    
+        Citizen.Wait(0)
+    end
+end
+
+
+local function integratedHUDThread()
+    while Config["GearShift"]["UseIntegratedHUD"] do
+        local vehicleHandle = getCurrentVehHandle()
+        local currentGear = getVehicleGearState(vehicleHandle)
+
+        local names = {}
+        for key, value in pairs(Gears) do
+            if  Gears.Invalid ~= value then
+                names[value] = key
+            end
+        end
+
+        local displayText = ""
+        for value, key in ipairs(names) do
+            if 
+                Gears.Invalid == value
+                or (not Config["GearShift"]["EnableNeutral"] and Gears.Neutral == value)
+                or (not Config["GearShift"]["EnableReverse"] and Gears.Reverse == value)
+            then
+                goto continue
+            end
+
+            if currentGear == value then
+                displayText = displayText .. "~w~"
+            else
+                displayText = displayText .. "~c~"
+            end
+
+            displayText = displayText .. key .. "~s~~n~"
+
+            ::continue::
+        end
+
+        drawText2DThisFrame({
+            text = displayText,
+            x = 0.025,
+            y = 0.6
         })
         
     
@@ -403,6 +412,7 @@ function initGearShiftModule()
     )
 
     Citizen.CreateThread(vehicleGearThread)
+    Citizen.CreateThread(integratedHUDThread)
     Citizen.CreateThread(debugThread)
     Input.onPressed("change_gear", onChangeGearPress)
 end

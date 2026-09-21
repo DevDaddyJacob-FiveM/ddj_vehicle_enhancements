@@ -11,6 +11,15 @@ Config = {
         Enabled = true,
 
         --[[
+            When set to true, uses the basic integrated HUD.
+            Optionally, you can make your own HUD using the script's exports or
+            use a HUD script made by someone else and hook this script into it
+            using the exports. (I am not the most UI tallented dev, so maybe one
+            day I will take the time to make something nice and ship it with this)
+        ]]
+        UseIntegratedHUD = false,
+
+        --[[
             Controls if the neutral gear is enabled or not
         ]]
         EnableNeutral = false,
