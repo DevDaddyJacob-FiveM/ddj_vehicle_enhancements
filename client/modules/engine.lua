@@ -19,7 +19,7 @@ local function getEngineThreadState(vehicleHandle)
     if nil == state then
         state = {
             wasRunning = GetIsVehicleEngineRunning(vehicleHandle),
-            keepRunningAfterExit = false,
+            manuallyTurnedOff = false,
         }
 
         engineStates[vehicleHandle] = state
@@ -31,31 +31,6 @@ local function getEngineThreadState(vehicleHandle)
 
     return state
 end
-
-
---[[
-    GTA automatically turns a vehicle's engine off shortly after its driver
-    exits. If the engine was still running as the driver left, and they
-    haven't chosen to turn it off, flag it to be restarted once that
-    auto-shutoff is observed.
-]]
-RegisterNetEvent("DevDaddyJacob:Lib:Events:Client:OnLeftVehicle", function(vehicle)
-    if not Config["Engine"]["KeepEngineOnExit"] then
-        return
-    end
-
-    if 0 == vehicle or not DoesEntityExist(vehicle) then
-        return
-    end
-
-    if not GetIsVehicleEngineRunning(vehicle) then
-        return
-    end
-
-    getEngineThreadState(vehicle).keepRunningAfterExit = true
-
-    logger:debug("will keep engine running after exit [handle: %d]", vehicle)
-end)
 
 
 local function onToggleEnginePress()
@@ -88,11 +63,23 @@ local function onToggleEnginePress()
             return
         end
 
+        if not canTurnEngineOff(vehHandle) then
+            logger:debug("turning engine off denied by canTurnEngineOff hook")
+            return
+        end
+
         logger:debug("turning engine off")
         SetVehicleEngineOn(vehHandle, false, false, Config["Engine"]["DisableAutoStart"])
+        getEngineThreadState(vehHandle).manuallyTurnedOff = true
     else
+        if not canTurnEngineOn(vehHandle) then
+            logger:debug("turning engine on denied by canTurnEngineOn hook")
+            return
+        end
+
         logger:debug("turning engine on")
         SetVehicleEngineOn(vehHandle, true, true, false)
+        getEngineThreadState(vehHandle).manuallyTurnedOff = false
     end
 end
 
@@ -107,32 +94,54 @@ local function engineWatcherThread()
         local controlledVehicles = {}
 
         for _, vehicleHandle in ipairs(GetGamePool("CVehicle")) do
-            if NetworkHasControlOfEntity(vehicleHandle) then
-                controlledVehicles[vehicleHandle] = true
-
-                local state = getEngineThreadState(vehicleHandle)
-                local engineRunning = GetIsVehicleEngineRunning(vehicleHandle)
-
-                if state.wasRunning and not engineRunning then
-                    if state.keepRunningAfterExit then
-                        logger:debug("restarting auto-shutoff engine, KeepEngineOnExit enabled [handle: %d]", vehicleHandle)
-
-                        SetVehicleEngineOn(vehicleHandle, true, true, false)
-                        engineRunning = true
-                    else
-                        enforceAutoStartDisabled(vehicleHandle)
-
-                        if Config["GearShift"]["Enabled"] then
-                            logger:debug("vehicle engine turned off, forcing into park [handle: %d]", vehicleHandle)
-                            setVehicleGearState(vehicleHandle, Gears.Park)
-                        end
-                    end
-
-                    state.keepRunningAfterExit = false
-                end
-
-                state.wasRunning = engineRunning
+            if not NetworkGetEntityIsNetworked(vehicleHandle) then
+                goto continue
             end
+            
+            if not NetworkHasControlOfEntity(vehicleHandle) then
+                goto continue
+            end
+            
+            if
+                not isVehicleDrivenByClient(vehicleHandle)
+                and doesVehicleHaveDriver(vehicleHandle)
+            then
+                goto continue
+            end
+
+            if not canControlEngine(vehicleHandle) then
+                goto continue
+            end
+
+
+            controlledVehicles[vehicleHandle] = true
+
+            local state = getEngineThreadState(vehicleHandle)
+            local engineRunning = GetIsVehicleEngineRunning(vehicleHandle)
+
+            if state.wasRunning and not engineRunning then
+                if
+                    Config["Engine"]["KeepEngineOnExit"]
+                    and not state.manuallyTurnedOff
+                    and canTurnEngineOn(vehicleHandle)
+                then
+                    logger:debug("restarting auto-shutoff engine, KeepEngineOnExit enabled [handle: %d]", vehicleHandle)
+
+                    SetVehicleEngineOn(vehicleHandle, true, true, false)
+                    engineRunning = true
+                else
+                    enforceAutoStartDisabled(vehicleHandle)
+
+                    if Config["GearShift"]["Enabled"] then
+                        logger:debug("vehicle engine turned off, forcing into park [handle: %d]", vehicleHandle)
+                        setVehicleGearState(vehicleHandle, Gears.Park)
+                    end
+                end
+            end
+
+            state.wasRunning = engineRunning
+
+            ::continue::
         end
 
         for vehicleHandle in pairs(engineStates) do

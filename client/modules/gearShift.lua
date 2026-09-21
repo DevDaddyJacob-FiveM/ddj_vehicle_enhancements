@@ -179,7 +179,7 @@ local function getVehicleGearThreadState(vehicleHandle)
 
         vehicleGearStates[vehicleHandle] = state
 
-        logger:debug("took control of gear shift logic for vehicle [handle: %d]", vehicleHandle)
+        -- logger:trace("took control of gear shift logic for vehicle [handle: %d]", vehicleHandle)
     end
 
     return state
@@ -211,6 +211,9 @@ local function processVehicleGear(vehicleHandle, state, hasDriverInput)
 
     elseif Gears.Park == state.lastGear then
         SetVehicleHandbrake(vehicleHandle, false)
+        for i = 0, GetVehicleNumberOfWheels(vehicleHandle) - 1, 1 do
+            SetVehicleWheelBrakePressure(vehicleHandle, i, 0.0)
+        end
 
         state.lastGear = nil
     end
@@ -378,22 +381,38 @@ local function vehicleGearThread()
         local controlledVehicles = {}
 
         for _, vehicleHandle in ipairs(GetGamePool("CVehicle")) do
-            if NetworkHasControlOfEntity(vehicleHandle) then
-                controlledVehicles[vehicleHandle] = true
-
-                local hasDriverInput =
-                    isClientInDriverSeat()
-                    and vehicleHandle == getCurrentVehHandle()
-
-                processVehicleGear(vehicleHandle, getVehicleGearThreadState(vehicleHandle), hasDriverInput)
+            if not NetworkGetEntityIsNetworked(vehicleHandle) then
+                goto continue
             end
+            
+            if not NetworkHasControlOfEntity(vehicleHandle) then
+                goto continue
+            end
+            
+            if
+                not isVehicleDrivenByClient(vehicleHandle)
+                and doesVehicleHaveDriver(vehicleHandle)
+            then
+                goto continue
+            end
+
+            controlledVehicles[vehicleHandle] = true
+
+            processVehicleGear(
+                vehicleHandle,
+                getVehicleGearThreadState(vehicleHandle),
+                isClientInDriverSeat()
+                    and vehicleHandle == getCurrentVehHandle()
+            )
+
+            ::continue::
         end
 
         for vehicleHandle in pairs(vehicleGearStates) do
             if not controlledVehicles[vehicleHandle] then
                 vehicleGearStates[vehicleHandle] = nil
 
-                logger:debug("gave up control of gear shift logic for vehicle [handle: %d]", vehicleHandle)
+                -- logger:trace("gave up control of gear shift logic for vehicle [handle: %d]", vehicleHandle)
             end
         end
 

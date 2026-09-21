@@ -11,7 +11,7 @@ local function initData()
     isInVehicle = IsPedInAnyVehicle(ped, false)
     currentVehicleHandle = GetVehiclePedIsIn(ped, false)
     currentVehicleNetId = VehToNet(currentVehicleHandle)
-    
+
     currentVehicleSeat = -2
     for i = -2, GetVehicleMaxNumberOfPassengers(currentVehicleHandle) do
         if GetPedInVehicleSeat(currentVehicleHandle, i) == ped then
@@ -66,4 +66,14 @@ end
 
 function getCurrentVehSeatId()
     return currentVehicleSeat
+end
+
+
+function isVehicleDrivenByClient(vehicleHandle)
+    return GetPedInVehicleSeat(vehicleHandle, -1) == PlayerPedId()
+end
+
+
+function doesVehicleHaveDriver(vehicleHandle)
+    return 0 ~= GetPedInVehicleSeat(vehicleHandle, -1)
 end
