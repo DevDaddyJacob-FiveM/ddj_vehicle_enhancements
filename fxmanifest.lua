@@ -5,7 +5,7 @@ use_experimental_fxv2_oal "yes"
 
 author "DevDaddyJacob"
 description "A FiveM script which provides various enhancements to vehicles"
-version "0.1.0"
+version "0.2.0"
 
 dependencies {
 	"ddj_lib", -- version >= 1.4.0
