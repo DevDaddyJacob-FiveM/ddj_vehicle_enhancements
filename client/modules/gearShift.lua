@@ -268,16 +268,16 @@ local function vehicleGearThread()
             if Config["GearShift"]["EnableReverse"] then
                 -- Auto roll if not on gas
                 if not Controls.isPressed(ControlInputs.INPUT_VEH_ACCELERATE) then
-                    Controls.setNormal(ControlInputs.INPUT_VEH_ACCELERATE, 0.3)
-                    
-                    --[[
-                        BUG: This was meant to fix the bug where when your in drive without gas
-                        pressed you would just start climbing through the gears, however 2 things
-                        occured, 1) the vehicle will not leave first but also will hit the top of
-                        first, which is too fast for this kind of rolling without gas. And 2) when 
-                        driving as soon as you let go of the gas it forces you into first gear.
-                    ]]
-                    SetVehicleCurrentGear(vehicleHandle, 1)
+                    local rollSpeed = GetEntitySpeedVector(vehicleHandle, true).y
+                    local rollTarget = Config["GearShift"]["AutoRoll"]["Speed"]
+                    local rollStep = Config["GearShift"]["AutoRoll"]["RampStep"]
+
+                    if rollTarget > rollSpeed then
+                        SetVehicleForwardSpeed(
+                            vehicleHandle,
+                            math.min(rollTarget, rollSpeed + rollStep)
+                        )
+                    end
                 end
 
                 local speed = GetEntitySpeed(vehicleHandle)
@@ -336,11 +336,16 @@ local function vehicleGearThread()
 
             -- Auto roll if not on gas
             if not Controls.isPressed(ControlInputs.INPUT_VEH_BRAKE, true) then
-                Controls.setNormal(ControlInputs.INPUT_VEH_ACCELERATE, 0.3)
-            
-                --[[
-                    BUG: The same bugs as the drive auto roll exist here.
-                ]]
+                local rollSpeed = GetEntitySpeedVector(vehicleHandle, true).y
+                local rollTarget = -1 * Config["GearShift"]["AutoRoll"]["Speed"]
+                local rollStep = Config["GearShift"]["AutoRoll"]["RampStep"]
+
+                if rollTarget < rollSpeed then
+                    SetVehicleForwardSpeed(
+                        vehicleHandle,
+                        math.max(rollTarget, rollSpeed - rollStep)
+                    )
+                end
             end
 
             local speed = GetEntitySpeed(vehicleHandle)

@@ -38,6 +38,20 @@ Config = {
         ]]
         DisableAutoReverse = true,
 
+        AutoRoll = {
+            --[[
+                The maximum speed (in m/s) vehicles are allowed to creep up to when
+                in drive/reverse without gas pressed.
+            ]]
+            Speed = 3.33,
+
+            --[[
+                How much the auto-roll speed ramps up per tick, so vehicles
+                ease into AutoRoll.Speed instead of snapping straight to it.
+            ]]
+            RampStep = 0.04,
+        },
+
         Controls = {
             --[[
                 The keybinding used to change into the next gear down
